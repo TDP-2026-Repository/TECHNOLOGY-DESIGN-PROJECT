@@ -24,6 +24,18 @@ def render():
     # ── Try loading results ──
     model_c_results = load_csv("model_c_results.csv")
 
+    # Fin's CSV uses a different schema (Strategy/Accuracy/F1 Score) — normalise it
+    if model_c_results is not None:
+        model_c_results = model_c_results.rename(columns={
+            "Strategy": "stage",
+            "Accuracy": "accuracy",
+            "F1 Score": "f1_macro",
+            "Precision": "precision_macro",
+            "Recall": "recall_macro",
+        })
+        if "f1_weighted" not in model_c_results.columns:
+            model_c_results["f1_weighted"] = model_c_results["f1_macro"]
+
     st.markdown("### Sequential Fine-tuning Pipeline")
 
     st.markdown(
