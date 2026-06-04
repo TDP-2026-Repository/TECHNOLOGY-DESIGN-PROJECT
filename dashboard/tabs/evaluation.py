@@ -26,6 +26,18 @@ def render():
     baseline_df = load_csv("task2_baseline_results.csv")
     bert_df = load_csv("bert_results.csv")
     model_c_df = load_csv("model_c_results.csv")
+
+    # Same schema fix as the Sequential Transfer tab
+    if model_c_df is not None:
+        model_c_df = model_c_df.rename(columns={
+            "Strategy": "stage",
+            "Accuracy": "accuracy",
+            "F1 Score": "f1_macro",
+            "Precision": "precision_macro",
+            "Recall": "recall_macro",
+        })
+        if "f1_weighted" not in model_c_df.columns:
+            model_c_df["f1_weighted"] = model_c_df["f1_macro"]
     llm_df = load_csv("llm_results.csv")
 
     st.markdown("### Data Availability")
