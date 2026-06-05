@@ -30,13 +30,15 @@ def render():
 
     baseline_df = load_csv("task2_baseline_results.csv")
     bert_df = load_csv("bert_results.csv")
+    t4_df = load_csv("task4_transfer_results.csv")
     llm_df = load_csv("llm_results.csv")
 
     st.markdown("### Data Availability")
-    s1, s2, s3 = st.columns(3)
+    s1, s2, s3, s4 = st.columns(4)
     s1.metric("TF-IDF Baselines", ":material/check_circle: Ready" if baseline_df is not None else ":material/cancel: Missing")
     s2.metric("BERT (Strategy 1-3)", ":material/check_circle: Ready" if bert_df is not None else ":material/pending: Pending")
-    s3.metric("LLM Experiments", ":material/check_circle: Ready" if llm_df is not None else ":material/pending: Pending")
+    s3.metric("Transfer (Task 4)", ":material/check_circle: Ready" if t4_df is not None else ":material/pending: Pending")
+    s4.metric("LLM Experiments", ":material/check_circle: Ready" if llm_df is not None else ":material/pending: Pending")
 
     st.markdown("---")
 
@@ -69,6 +71,18 @@ def render():
                 "Type": "BERT Transformer",
             })
 
+    # ── Transfer techniques (Task 4): DAPT, Few-Shot ──
+    if t4_df is not None:
+        for _, row in t4_df.iterrows():
+            all_results.append({
+                "Approach": row["Transfer Learning Technique"],
+                "Method": "Transfer technique",
+                "Accuracy": row["Accuracy"],
+                "F1 (Macro)": row["F1 Score"],
+                "F1 (Weighted)": row["F1 Score"],
+                "Type": "Transfer Technique",
+            })
+
     # ── LLM prompting ──
     if llm_df is not None:
         for _, row in llm_df.iterrows():
@@ -98,6 +112,7 @@ def render():
     color_map = {
         "TF-IDF Baseline": "#8899aa",
         "BERT Transformer": "#2a9d8f",
+        "Transfer Technique": "#e9c46a",
         "LLM": "#e76f51",
     }
 

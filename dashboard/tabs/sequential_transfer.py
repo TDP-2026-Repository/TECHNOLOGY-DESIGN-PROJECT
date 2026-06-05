@@ -216,3 +216,40 @@ def render():
             "contains only 7 Fear samples \u2014 too few to learn reliably. This is a "
             "documented data limitation, not a model fault."
         )
+
+    # ── Task 4: Transfer Learning Techniques (DAPT, Few-Shot) ──
+    st.divider()
+    st.markdown("### Task 4: Transfer Learning Techniques")
+    st.markdown(
+        "The project brief requires at least two distinct transfer-learning techniques. "
+        "Beyond sequential fine-tuning (Strategy 2 above), we implement **Domain-Adaptive "
+        "Pretraining (DAPT)** and **Few-Shot Fine-Tuning**."
+    )
+
+    t4 = load_csv("task4_transfer_results.csv")
+    if t4 is None:
+        st.info(":material/folder: `task4_transfer_results.csv` not found (columns: Transfer Learning Technique, Accuracy, Precision, Recall, F1 Score).")
+    else:
+        cols = st.columns(len(t4))
+        for col, (_, r) in zip(cols, t4.iterrows()):
+            with col:
+                col.metric(
+                    label=r["Transfer Learning Technique"],
+                    value=f"F1: {r['F1 Score']:.3f}",
+                    delta=f"Acc: {r['Accuracy']:.3f}",
+                )
+        fig = px.bar(
+            t4, x="Transfer Learning Technique", y="F1 Score",
+            title="Task 4 Transfer-Learning Techniques (F1)",
+            color="Transfer Learning Technique",
+            color_discrete_sequence=["#2a9d8f", "#e9c46a"],
+            text="F1 Score",
+        )
+        fig.update_traces(texttemplate="%{text:.3f}", textposition="outside")
+        fig.update_layout(height=380, yaxis_range=[0, 1], showlegend=False)
+        st.plotly_chart(apply_plotly_theme(fig), width="stretch")
+        st.caption(
+            "DAPT continues masked-language-model pretraining on financial text before "
+            "fine-tuning; few-shot fine-tuning trains on a small labelled subset. Both are "
+            "distinct from the sequential transfer in Strategy 2."
+        )

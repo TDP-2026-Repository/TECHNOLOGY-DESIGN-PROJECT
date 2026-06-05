@@ -79,7 +79,7 @@ def render():
                 go.Bar(
                     x=counts.index.tolist(),
                     y=counts.values.tolist(),
-                    marker_color=[LABEL_COLORS[l] for l in counts.index], # Uses updated utils.py
+                    marker_color=[LABEL_COLORS[l] for l in counts.index],
                     text=[f"{v:,} ({100*v/len(selected_df):.1f}%)" if len(selected_df)>0 else "0" for v in counts.values],
                     textposition="outside",
                 )
@@ -104,7 +104,7 @@ def render():
         for lbl in selected_classes:
             subset = filtered[filtered["label"] == lbl]
             if len(subset) > 0:
-                sample = subset["text"].sample(1).iloc[0] 
+                sample = subset["text"].sample(1).iloc[0]
                 st.markdown(f"**{lbl}:** {sample}")
 
     st.divider()
@@ -130,19 +130,18 @@ def render():
         go_sizes = [len(goemotions), 0, len(goemotions)]
         fpb_sizes = [0, len(fpb_train), len(fpb_train)]
 
-        # UPDATED: Using Dark Navy (#264653) and Light Orange (#f4a261)
         fig.add_trace(go.Bar(name="GoEmotions", x=conditions, y=go_sizes, marker_color="#264653"))
         fig.add_trace(go.Bar(name="FPB Train", x=conditions, y=fpb_sizes, marker_color="#f4a261"))
-        fig.update_layout(barmode="stack", title="Training Set Composition per Condition", yaxis_title="Samples", height=380)
+        fig.update_layout(barmode="stack", title="Baseline Training Set Composition (A/B/C)", yaxis_title="Samples", height=380)
         st.plotly_chart(apply_plotly_theme(fig), width="stretch", use_container_width=True)
 
     st.divider()
 
     st.markdown("### :material/route: Pipeline Summary")
-    st.info("**7-step text normalisation:** lowercase → remove URLs → remove @mentions → strip hashtags → remove non-ASCII → replace punctuation → normalise whitespace.")
-    
+    st.info("**Text normalisation (TF-IDF baseline):** lowercase \u2192 remove URLs \u2192 remove @mentions \u2192 remove HTML tags \u2192 remove special characters while keeping basic punctuation (.,!?'\"-) \u2192 normalise whitespace \u2192 drop empty/near-empty rows.")
+
     with st.expander(":material/verified_user: Split Verification - Zero Data Leakage"):
-        st.markdown("Stratified 70/15/15 split on FPB. Verify class proportions are consistent:")
+        st.markdown("Stratified 70/15/15 split on FPB. Class proportions are consistent across splits:")
         split_data = []
         for name, df in [("Train", fpb_train), ("Val", fpb_val), ("Test", fpb_test)]:
             row = {"Split": name, "Total": len(df)}
@@ -152,38 +151,100 @@ def render():
         st.dataframe(pd.DataFrame(split_data), width="stretch", hide_index=True)
 
     st.divider()
-    
-    st.markdown("### :material/warning_amber: Data Engineering Impact: The Stratification Problem")
-    st.markdown("Why can't we just use a naive random split? Let's simulate a split without strict stratification.")
-    
-    col_sim1, col_sim2 = st.columns([1, 2])
-    
-    with col_sim1:
-        st.info("In the FPB dataset, **'Fear'** is extremely rare (only ~1.5% of data).")
-        if st.button(":material/shuffle: Simulate Naive Random Split", type="primary"):
-            import random
-            simulated_fear = sum([1 for _ in range(727) if random.random() < 0.015])
-            st.session_state['sim_fear'] = simulated_fear
-            
-    with col_sim2:
-        if 'sim_fear' in st.session_state:
-            sim_fear = st.session_state['sim_fear']
-            if sim_fear < 5:
-                st.error(f":material/error: **Disaster!** In this random split, only **{sim_fear}** 'Fear' samples made it into the test set (Expected: ~11). The ML evaluation would be completely unstable.")
-            elif sim_fear > 16:
-                st.error(f":material/error: **Disaster!** In this random split, **{sim_fear}** 'Fear' samples leaked into the test set. The model will look artificially bad.")
-            else:
-                st.warning(f":material/warning: Got lucky this time with {sim_fear} samples. But luck isn't a pipeline.")
-            
-            st.success(":material/check_circle: **Our Production Pipeline:** Uses strict `stratify=df['label']` and `random_state=42` to guarantee exactly **7** Fear samples in every single test run, ensuring deterministic ML evaluation.")
 
     st.divider()
 
-    st.markdown("### :material/science: Live Preprocessing & Tokenization Preview")
-    st.markdown("Test the Data Engineering pipeline in real-time. See how raw text is transformed before hitting the ML models.")
+    st.markdown("### :material/policy: Data Integrity Check: Catching Train/Test Leakage")
+    st.markdown(
+        "Beyond stratification, the pipeline verifies that no test sentence appears in any "
+        "training set. During integration this check **caught a real leak** in the mixed "
+        "training condition \u2014 here is what it found and how it was corrected."
+    )
+
+    col_diag, col_chart = st.columns([1, 1])
+
+    with col_diag:
+        st.markdown(
+            """
+            <div class="highlight-box" style="margin-top:0;">
+                <strong>How the leak was detected and fixed</strong>
+            </div>
+
+            * :material/search: **Symptom:** the mixed condition scored **0.989** while every other
+              condition sat at **0.82&ndash;0.85**. An implausible gap is a leakage signal, not a win.
+            * :material/bug_report: **Root cause:** the combined training file held the **full** Financial
+              PhraseBank (4,846 rows), including all **727 test rows** the model was training on
+              its own evaluation data.
+            * :material/build: **Fix:** rebuilt the combined set as GoEmotions + FPB **train only**
+              (46,796 rows); verified **0** test rows remained; models retrained.
+            * :material/check_circle: **Result:** the corrected mixed score fell to **~0.85**, consistent
+              with the other conditions.
+            * :material/lightbulb: **Lesson:** train/test separation is **verified, not assumed** &mdash;
+              an implausibly high score is treated as a symptom to investigate.
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with col_chart:
+        leaked_f1, leaked_acc = 0.989, 0.989
+        clean_f1, clean_acc = 0.598, 0.847  # corrected mixed (from bert_results.csv)
+
+        fig_leak = go.Figure()
+        fig_leak.add_trace(go.Bar(
+            name="Leaked (INVALID)",
+            x=["Accuracy", "Macro F1"], y=[leaked_acc, leaked_f1],
+            marker=dict(color="#e76f51", pattern=dict(shape="x")),
+            text=["0.989", "0.989"], textposition="outside",
+        ))
+        fig_leak.add_trace(go.Bar(
+            name="Corrected (clean)",
+            x=["Accuracy", "Macro F1"], y=[clean_acc, clean_f1],
+            marker_color="#2a9d8f",
+            text=[f"{clean_acc:.3f}", f"{clean_f1:.3f}"], textposition="outside",
+        ))
+        fig_leak.update_layout(
+            title="Mixed Condition: Leaked vs Corrected",
+            barmode="group", height=340, yaxis_range=[0, 1.05],
+            yaxis_title="Score",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        )
+        st.plotly_chart(apply_plotly_theme(fig_leak), use_container_width=True)
+        st.caption(
+            "The hatched red bars are the **leaked, invalid** scores, shown only to "
+            "illustrate the inflation \u2014 they are not a real result. The teal bars are the "
+            "verified post-fix numbers."
+        )
+
+    st.markdown("### :material/warning_amber: Data Engineering Impact: The Stratification Problem")
+    st.markdown("Why can't we just use a naive random split? Let's simulate a split without strict stratification.")
+
+    col_sim1, col_sim2 = st.columns([1, 2])
+
+    with col_sim1:
+        st.info("In the FPB dataset, **'Fear'** is extremely rare (under **1%** of the data).")
+        if st.button(":material/shuffle: Simulate Naive Random Split", type="primary"):
+            import random
+            simulated_fear = sum([1 for _ in range(727) if random.random() < 0.0095])
+            st.session_state['sim_fear'] = simulated_fear
+
+    with col_sim2:
+        if 'sim_fear' in st.session_state:
+            sim_fear = st.session_state['sim_fear']
+            if sim_fear < 4:
+                st.error(f":material/error: **Disaster!** In this random split, only **{sim_fear}** 'Fear' samples landed in the test set (stratified target: 7). The ML evaluation would be unstable.")
+            elif sim_fear > 11:
+                st.error(f":material/error: **Disaster!** In this random split, **{sim_fear}** 'Fear' samples landed in the test set (stratified target: 7). The class balance is distorted.")
+            else:
+                st.warning(f":material/warning: Got {sim_fear} samples this time. Close to target, but luck isn't a pipeline \u2014 it varies every run.")
+
+            st.success(":material/check_circle: **Our Production Pipeline:** Uses strict `stratify=df['label']` with `random_state=42` to fix the test set at exactly **7** Fear samples on every run, ensuring deterministic, reproducible evaluation.")
+
+    st.divider()
+
+    st.markdown("### :material/science: Live Preprocessing Preview")
+    st.markdown("Test the data-engineering pipeline in real time. See how raw text is transformed before the TF-IDF baselines.")
 
     import re
-    import string
 
     def demo_clean_text(text):
         steps = {"Original": text}
@@ -193,14 +254,10 @@ def render():
         steps["2. Remove URLs"] = text
         text = re.sub(r'@\w+', '', text)
         steps["3. Remove Mentions"] = text
-        text = re.sub(r'#(\w+)', r'\1', text)
-        steps["4. Strip Hashtags"] = text
-        text = re.sub(r'[^\x00-\x7F]+', ' ', text)
-        steps["5. Remove Non-ASCII"] = text
-        text = text.translate(str.maketrans(string.punctuation, ' ' * len(string.punctuation)))
-        steps["6. Remove Punctuation"] = text
-        text = re.sub(r'\d+', 'NUM', text)
-        steps["7. Mask Numbers"] = text
+        text = re.sub(r'<[^>]+>', '', text)
+        steps["4. Remove HTML Tags"] = text
+        text = re.sub(r"[^a-z0-9\s.,!?'\"-]", ' ', text)
+        steps["5. Remove Special Chars (keep basic punctuation)"] = text
         text = re.sub(r'\s+', ' ', text).strip()
         steps["Final Output"] = text
         return steps
@@ -210,23 +267,23 @@ def render():
     with col_input:
         sample_text = st.text_area(
             "Enter raw text (or use the financial default):",
-            value="Omg!😮 The CEO @ElonMusk just tweeted that TSLA revenue grew by 45% this quarter!!! #BullMarket https://investor.tsla.com",
+            value="Omg! The CEO @ElonMusk just tweeted that TSLA revenue grew by 45% this quarter!!! https://investor.tsla.com",
             height=150
         )
-        
+
     with col_output:
         if sample_text:
             processed_steps = demo_clean_text(sample_text)
-            
+
             st.markdown("**TF-IDF Baseline Pipeline (Task 2)**")
             st.code(processed_steps["Final Output"], language="text")
-            
+
             with st.expander(":material/list_alt: View Step-by-Step Execution"):
                 for step_name, result in processed_steps.items():
                     if step_name not in ["Original", "Final Output"]:
                         st.markdown(f"**{step_name}:** `{result}`")
-            
+
             st.markdown("**BERT Tokenization (Tasks 3 & 4)**")
-            st.info(":material/tips_and_updates: *Note: BERT uses WordPiece tokenization and relies on original casing/punctuation. It skips the TF-IDF cleaning steps above to preserve context (e.g., distinguishing 'US' from 'us').*")
+            st.info(":material/tips_and_updates: *Note: the transformer models do not use this cleaned text. `bert-base-uncased` applies its own WordPiece subword tokenization, splitting rare or financial terms into known sub-tokens rather than dropping them \u2014 so heavy cleaning would remove signal it expects.*")
 
     st.divider()
