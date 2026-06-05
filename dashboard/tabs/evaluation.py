@@ -1,6 +1,11 @@
 """
 Tab 7: Cross-Model Evaluation & Comparison
 Owner: Himanshu (Evaluation Engineer)
+
+Sources:
+  - task2_baseline_results.csv  (TF-IDF baselines, A/B/C)
+  - bert_results.csv            (Transformer Strategy 1/2/3 - canonical)
+  - llm_results.csv             (LLM zero/few-shot)
 """
 
 import streamlit as st
@@ -25,37 +30,23 @@ def render():
 
     baseline_df = load_csv("task2_baseline_results.csv")
     bert_df = load_csv("bert_results.csv")
-    model_c_df = load_csv("model_c_results.csv")
-
-    # Same schema fix as the Sequential Transfer tab
-    if model_c_df is not None:
-        model_c_df = model_c_df.rename(columns={
-            "Strategy": "stage",
-            "Accuracy": "accuracy",
-            "F1 Score": "f1_macro",
-            "Precision": "precision_macro",
-            "Recall": "recall_macro",
-        })
-        if "f1_weighted" not in model_c_df.columns:
-            model_c_df["f1_weighted"] = model_c_df["f1_macro"]
     llm_df = load_csv("llm_results.csv")
 
     st.markdown("### Data Availability")
-    s1, s2, s3, s4 = st.columns(4)
+    s1, s2, s3 = st.columns(3)
     s1.metric("TF-IDF Baselines", ":material/check_circle: Ready" if baseline_df is not None else ":material/cancel: Missing")
-    s2.metric("BERT Models", ":material/check_circle: Ready" if bert_df is not None else ":material/pending: Pending")
-    s3.metric("Sequential Transfer", ":material/check_circle: Ready" if model_c_df is not None else ":material/pending: Pending")
-    s4.metric("LLM Experiments", ":material/check_circle: Ready" if llm_df is not None else ":material/pending: Pending")
+    s2.metric("BERT (Strategy 1-3)", ":material/check_circle: Ready" if bert_df is not None else ":material/pending: Pending")
+    s3.metric("LLM Experiments", ":material/check_circle: Ready" if llm_df is not None else ":material/pending: Pending")
 
     st.markdown("---")
 
     all_results = []
 
+    # ── TF-IDF baselines: best classifier per A/B/C condition ──
     if baseline_df is not None:
-        for _, row in baseline_df.iterrows():
-            best_per_condition = baseline_df.loc[
-                baseline_df.groupby("Model Condition")["F1 (macro)"].idxmax()
-            ]
+        best_per_condition = baseline_df.loc[
+            baseline_df.groupby("Model Condition")["F1 (macro)"].idxmax()
+        ]
         for _, row in best_per_condition.iterrows():
             all_results.append({
                 "Approach": row["Model Condition"],
@@ -66,6 +57,7 @@ def render():
                 "Type": "TF-IDF Baseline",
             })
 
+    # ── Transformer stage: Strategy 1/2/3 from bert_results.csv ──
     if bert_df is not None:
         for _, row in bert_df.iterrows():
             all_results.append({
@@ -74,20 +66,10 @@ def render():
                 "Accuracy": row["accuracy"],
                 "F1 (Macro)": row["f1_macro"],
                 "F1 (Weighted)": row["f1_weighted"],
-                "Type": "BERT",
+                "Type": "BERT Transformer",
             })
 
-    if model_c_df is not None:
-        final_stage = model_c_df.iloc[-1]
-        all_results.append({
-            "Approach": "Sequential Transfer (Model C)",
-            "Method": "BERT GoEmotions → FPB",
-            "Accuracy": final_stage["accuracy"],
-            "F1 (Macro)": final_stage["f1_macro"],
-            "F1 (Weighted)": final_stage["f1_weighted"],
-            "Type": "Sequential Transfer",
-        })
-
+    # ── LLM prompting ──
     if llm_df is not None:
         for _, row in llm_df.iterrows():
             all_results.append({
@@ -105,7 +87,7 @@ def render():
 
     results_df = pd.DataFrame(all_results)
 
-    st.markdown("### F1 (Macro) - All Approaches")
+    st.markdown("### Performance - All Approaches")
 
     metric_choice = st.selectbox(
         "Select metric",
@@ -115,9 +97,8 @@ def render():
 
     color_map = {
         "TF-IDF Baseline": "#8899aa",
-        "BERT": "#00d4ff",
-        "Sequential Transfer": "#2ecc71",
-        "LLM": "#e74c3c",
+        "BERT Transformer": "#2a9d8f",
+        "LLM": "#e76f51",
     }
 
     fig = px.bar(
@@ -131,7 +112,7 @@ def render():
         text=metric_choice,
     )
     fig.update_traces(texttemplate="%{text:.3f}", textposition="outside")
-    fig.update_layout(height=max(400, len(all_results) * 50), xaxis_range=[0, 1])
+    fig.update_layout(height=max(400, len(all_results) * 45), xaxis_range=[0, 1])
     st.plotly_chart(apply_plotly_theme(fig), width="stretch")
 
     st.markdown("---")
@@ -164,7 +145,7 @@ def render():
             <div class="card-title">:material/emoji_events: Best Performing</div>
             <p><strong>{best['Approach']}</strong></p>
             <p>Method: {best['Method']}</p>
-            <p>F1 (Macro): <span style="color:#2ecc71; font-size:1.3rem; font-weight:bold">{best['F1 (Macro)']:.4f}</span></p>
+            <p>F1 (Macro): <span style="color:#2a9d8f; font-size:1.3rem; font-weight:bold">{best['F1 (Macro)']:.4f}</span></p>
         </div>
         """,
             unsafe_allow_html=True,
@@ -177,15 +158,16 @@ def render():
             <div class="card-title">:material/trending_down: Weakest Performing</div>
             <p><strong>{worst['Approach']}</strong></p>
             <p>Method: {worst['Method']}</p>
-            <p>F1 (Macro): <span style="color:#e74c3c; font-size:1.3rem; font-weight:bold">{worst['F1 (Macro)']:.4f}</span></p>
+            <p>F1 (Macro): <span style="color:#e76f51; font-size:1.3rem; font-weight:bold">{worst['F1 (Macro)']:.4f}</span></p>
         </div>
         """,
             unsafe_allow_html=True,
         )
 
+    # ── Domain gap analysis (baseline A vs B) ──
     if baseline_df is not None:
         st.markdown("---")
-        st.markdown("### Domain Gap Analysis")
+        st.markdown("### Domain Gap Analysis (TF-IDF Baselines)")
 
         best_a = baseline_df[baseline_df["Model Condition"] == "Model A (General Only)"]["F1 (macro)"].max()
         best_b = baseline_df[baseline_df["Model Condition"] == "Model B (Domain Only)"]["F1 (macro)"].max()
@@ -199,10 +181,10 @@ def render():
         st.markdown(
             f"""
         <div class="highlight-box">
-            <strong>Core finding:</strong> A {gap*100:.1f} percentage point macro F1 gap exists 
-            between identical architectures trained on different data. This confirms that 
-            domain adaptation is necessary and training data composition is as important as 
-            model architecture for financial sentiment classification.
+            <strong>Core finding:</strong> A {gap*100:.1f} percentage-point macro F1 gap exists
+            between identical architectures trained on different data. This confirms that
+            domain adaptation is necessary and that training-data composition is as important
+            as model architecture for financial sentiment classification.
         </div>
         """,
             unsafe_allow_html=True,
