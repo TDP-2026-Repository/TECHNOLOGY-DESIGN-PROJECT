@@ -24,6 +24,7 @@ def load_data(filename):
     paths_to_try = [
         os.path.join(project_root, "data", "processed", filename),
         os.path.join(dashboard_dir, "data", "processed", filename),
+        os.path.join(dashboard_dir, "data", filename),   # fallback for older structure.
         os.path.join("..", "data", "processed", filename)
     ]
     for path in paths_to_try:
