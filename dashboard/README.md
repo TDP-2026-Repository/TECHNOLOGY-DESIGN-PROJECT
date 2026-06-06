@@ -3,7 +3,7 @@
 Interactive dashboard for the project demo (Microsoft Teams live presentation).
 
 
-## Quick Start
+## Quick Start to run the dashboard locally.
 
 ```bash
 # 1. Install dependencies
@@ -13,6 +13,7 @@ pip install -r requirements.txt
 python src/data_preprocessing.py
 
 # 3. Run the dashboard
+streamlit run app.py
 
 ```
 
