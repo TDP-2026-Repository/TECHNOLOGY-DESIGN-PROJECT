@@ -1,4 +1,4 @@
-# Sentiment Analysis Dashboard — COS60011
+# Sentiment Analysis Dashboard COS60011
 
 Interactive dashboard for the project demo (Microsoft Teams live presentation).
 
@@ -17,7 +17,7 @@ streamlit run app.py
 
 ```
 
-The dashboard opens at `https://technologydesignproject.streamlit.app/`.
+The dashboard is live at `https://technologydesignproject.streamlit.app/`.
 
 
 ```
