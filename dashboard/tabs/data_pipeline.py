@@ -152,8 +152,6 @@ def render():
 
     st.divider()
 
-    st.divider()
-
     st.markdown("### :material/policy: Data Integrity Check: Catching Train/Test Leakage")
     st.markdown(
         "Beyond stratification, the pipeline verifies that no test sentence appears in any "

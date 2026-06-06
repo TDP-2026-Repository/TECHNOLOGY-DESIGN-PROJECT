@@ -64,7 +64,7 @@ def render():
             
             * :material/error: **The Problem:** Model A completely failed to detect *Fear* and *Joy* in the test set.
             * :material/search: **The Cause:** TF-IDF models require exact word matches to make predictions.
-            * :material/trending_down: **The Blind Spot:** **46.2%** of financial words (e.g., <i>'ebitda'</i>, <i>'bullish'</i>) do not exist in the general training data!
+            * :material/trending_down: **The Blind Spot:** **60.1%** of financial words (7,050 of 11,732, e.g., <i>'ebitda'</i>, <i>'bullish'</i>) do not exist in the general training data!
             * :material/check_circle: **Conclusion:** This data reality proves why our team had to build Domain-Adaptive models (B & C).
             """,
             unsafe_allow_html=True
@@ -73,8 +73,8 @@ def render():
     with col_chart:
         # UPDATED: Using Tutor's Teal (#2a9d8f) and Burnt Orange (#e76f51)
         fig_vocab = go.Figure(data=[go.Pie(
-            labels=['Shared Vocabulary', 'Missing Financial Terms'],
-            values=[53.8, 46.2],
+            labels=['Shared Vocabulary', 'Financial-only (unseen)'],
+            values=[39.9, 60.1],
             hole=.65,
             marker=dict(
                 colors=['#2a9d8f', '#e76f51'], 
