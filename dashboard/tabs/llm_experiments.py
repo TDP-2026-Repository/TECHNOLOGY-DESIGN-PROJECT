@@ -79,21 +79,14 @@ def render():
     with st.expander(":material/chat: Prompt Templates"):
         st.markdown("**Zero-shot prompt:**")
         st.code(
-            """Classify the following financial text into one of these sentiment categories:
-- Optimism: positive financial outlook, growth, profit increase
-- Joy: strong positive reaction, celebration, success
-- Fear: concern, risk, uncertainty, negative outlook
-- Sadness: decline, loss, negative financial results
-- Neutral: factual reporting, no clear sentiment
-
-Text: "{text}"
-
-Sentiment:""",
+            """
+            Classify the sentiment of the following text into one of these categories: Optimism, Joy, Neutral, Fear, Sadness.\nRespond with only the category name.\n\nText: {text}\nCategory:
+            """,
             language="text",
         )
 
-        st.markdown("**Few-shot prompt:** Same as above, preceded by N labelled examples per class.")
-        st.markdown("*Update with Kevin's actual prompts when available.*")
+        st.markdown("**Few-shot prompt:** Same as above, preceded by 5 labelled examples (one for each class).")
+        #st.markdown("*Update with Kevin's actual prompts when available.*")
 
     st.markdown("---")
 
