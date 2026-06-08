@@ -71,17 +71,7 @@ def render():
                 "Type": "BERT Transformer",
             })
 
-    # ── Transfer techniques (Task 4): DAPT, Few-Shot ──
-    if t4_df is not None:
-        for _, row in t4_df.iterrows():
-            all_results.append({
-                "Approach": row["Transfer Learning Technique"],
-                "Method": "Transfer technique",
-                "Accuracy": row["Accuracy"],
-                "F1 (Macro)": row["F1 Score"],
-                "F1 (Weighted)": row["F1 Score"],
-                "Type": "Transfer Technique",
-            })
+    
 
     # ── LLM prompting ──
     if llm_df is not None:
